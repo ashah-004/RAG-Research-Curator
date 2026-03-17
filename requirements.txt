@@ -1,0 +1,15 @@
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+requests==2.31.0
+psycopg2-binary==2.9.9
+opensearch-py==2.4.2
+# STRICT PINS (Do not change these)
+gradio==4.19.2
+pydantic==2.6.1
+typing-extensions==4.9.0
+# AI Stack
+langchain==0.1.0
+langchain-community==0.0.10
+pypdf==3.17.4
+sentence-transformers==2.5.1
+arxiv==2.1.0

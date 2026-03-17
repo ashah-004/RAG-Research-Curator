@@ -1,0 +1,126 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: arxiv_postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=arxiv-db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rag_network
+  
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: arxiv_opensearch
+    environment:
+      - discovery.type=single-node
+      - "DISABLE_SECURITY_PLUGIN=true"
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - rag_network
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    container_name: arxiv_dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      - 'OPENSEARCH_HOSTS=["http://opensearch:9200"]'
+      - "DISABLE_SECURITY_DASHBOARDS_PLUGIN=true"
+    depends_on:
+      - opensearch
+    networks:
+      - rag_network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: arxiv_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - rag_network
+
+  model-puller:
+    image: curlimages/curl
+    container_name: ollama_puller
+    command: >
+      http://ollama:11434/api/pull -d '{"name": "llama3.2"}'
+    depends_on:
+      - ollama
+    networks:
+      - rag_network
+
+  # ingestion:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.ingest
+  #   container_name: arxiv_ingestion
+  #   environment:
+  #     - OPENSEARCH_HOST=opensearch
+  #     - POSTGRES_HOST=postgres
+  #     - POSTGRES_USER=admin
+  #     - POSTGRES_PASSWORD=admin
+  #     - POSTGRES_DB=arxiv-db 
+  #   depends_on:
+  #     - opensearch
+  #     - postgres
+  #   networks:
+  #     - rag_network
+  #   restart: "no"     
+
+  backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: arxiv_api
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENSEARCH_HOST=opensearch
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=arxiv-db
+      - OLLAMA_HOST=ollama
+    depends_on:
+      - opensearch
+      - postgres
+    networks:
+      - rag_network
+
+  frontend-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: arxiv_ui
+    ports:
+      - "7860:7860"
+    environment:
+      - API_HOST=backend-api
+    depends_on:
+      - backend-api
+    networks:
+      - rag_network
+
+
+volumes:
+  postgres_data:
+  opensearch_data:
+  ollama_models:
+
+networks:
+  rag_network:
+    driver: bridge
+
+  
